@@ -1,40 +1,40 @@
-"""Sub-agentes especializados y agente orquestador principal."""
+"""Sub-agentes especializados y agente orquestador principal.
+
+Los componentes (modelo, RAG, executor de código) se resuelven según el perfil
+activo en `config.py`: `AGENT_PROFILE=local` (gratuito, Ollama) o
+`AGENT_PROFILE=production` (GCP / Vertex AI).
+"""
 
 from google.adk.agents import LlmAgent
-from google.adk.tools import VertexAiSearchTool
-from google.adk.code_executors import AgentEngineSandboxCodeExecutor
 
+from . import config
 from .callbacks import enforce_tool_permissions, sanitize_and_protect_input
 from .tools import add_family_transaction, get_family_budget_status
 
-# 1. Herramienta RAG sobre Guías de Economía Familiar y Ahorro
-family_education_search_tool = VertexAiSearchTool(
-    project="demo-family-finance-gcp",
-    location="global",
-    data_store_id="family-finance-guides-ds"
-)
+# Etiqueta del modelo activo del orquestador (para el resumen de main.py)
+LOCAL_MODEL_NAME = config.get_model_label("orchestrator")
+
+# 1. Herramienta RAG — local (ChromaDB + Ollama) o Vertex AI Search según perfil
+family_education_search_tool = config.build_search_tool()
 
 # 2. Sub-agente especialista en Educación Financiera y Normas del Hogar
-# Se habilita 'bypass_multi_tools_limit=True' para combinar RAG con herramientas del cliente.
+# (ADK 2.x permite combinar herramientas built-in y de función sin flags).
 advisor_sub_agent = LlmAgent(
     name="FamilyFinancialAdvisorAgent",
-    model="gemini-2.5-flash",
+    model=config.get_model("advisor"),
     instruction="""Eres un educador y asesor financiero familiar experto.
 Tu objetivo es ofrecer consejos prácticos sobre optimización de gastos, estrategias de ahorro,
 fondos de emergencia y educación financiera para niños y adultos.
 Consulta la base de conocimientos antes de responder y verifica el estado actual del presupuesto.""",
     tools=[family_education_search_tool, get_family_budget_status],
-    bypass_multi_tools_limit=True
 )
 
-# 3. Sub-agente Analista de Datos en Sandbox de Ejecución Segura
-sandbox_executor = AgentEngineSandboxCodeExecutor(
-    sandbox_resource_name="projects/demo-family-finance-gcp/locations/us-central1/sandboxes/family-finance-sandbox"
-)
+# 3. Sub-agente Analista de Datos con executor de código según perfil
+sandbox_executor = config.build_code_executor()
 
 data_analyst_sub_agent = LlmAgent(
     name="FamilyDataAnalystAgent",
-    model="gemini-2.5-pro",
+    model=config.get_model("analyst"),
     instruction="""Genera y ejecuta código Python en el sandbox seguro para analizar la lista de transacciones.
 Calcula porcentajes de variación mensual, proyecciones de ahorro al final del año y genera gráficos estadísticos
 desagregados por categoría o miembros de la familia.""",
@@ -44,7 +44,7 @@ desagregados por categoría o miembros de la familia.""",
 # 4. Agente Orquestador principal (FamilyBudgetOrchestratorAgent)
 main_orchestrator_agent = LlmAgent(
     name="FamilyBudgetOrchestratorAgent",
-    model="gemini-2.5-flash",
+    model=config.get_model("orchestrator"),
     instruction="""Eres el Asistente Orquestador Principal de la Economía Familiar.
 Usuario activo: {user:id} | Rol: {user:role} | Presupuesto Mensual: {user:monthly_budget_limit} EUR
 

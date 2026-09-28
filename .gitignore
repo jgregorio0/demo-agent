@@ -1,3 +1,11 @@
 .venv
 __pycache__
 .adk
+
+# Perfil production: configuración real del proyecto GCP (nunca commitear)
+.env.production
+
+# Artefactos generados en runtime
+*.db
+.chroma/
+deploy_and_publish.sh

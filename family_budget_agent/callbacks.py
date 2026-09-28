@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any, Dict
 
-from google.adk.agents import CallbackContext
+from google.adk.agents.callback_context import CallbackContext
 
 logger = logging.getLogger(__name__)
 

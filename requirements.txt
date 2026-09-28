@@ -1,0 +1,30 @@
+# ==============================================================================
+# Dependencias del agente de economía familiar
+#
+#   pip install -r requirements.txt
+#
+# Perfil `local` (por defecto): todo funciona gratis en tu máquina
+# (Ollama + ChromaDB + SQLite). Perfil `production`: GCP / Vertex AI.
+# ==============================================================================
+
+# --- Núcleo (ambos perfiles) ---
+google-adk>=2.10.0        # Agent Development Kit
+pydantic>=2.13            # Esquemas de entrada (models.py)
+python-dotenv>=1.2        # Carga de .env / .env.<perfil> (config.py)
+sqlalchemy[asyncio]>=2.1  # DatabaseSessionService ([asyncio] incluye greenlet)
+aiosqlite>=0.22           # Driver async de SQLite para las sesiones
+
+# --- Perfil local (gratuito / open-source) ---
+litellm>=1.103            # LiteLlm → Ollama (ollama_chat/...)
+chromadb>=1.5             # Vector store embebido para el RAG local
+onnxruntime>=1.30         # Embeddings ONNX locales por defecto de ChromaDB
+httpx>=0.28               # Embeddings vía API de Ollama (si OLLAMA_EMBED_MODEL)
+
+# --- Opcional: executor de código aislado con Docker ---
+# Necesario solo si CODE_EXECUTOR_MODE=docker en .env.local
+# docker>=7.2
+
+# --- Perfil production (GCP / Vertex AI — infra de pago) ---
+# Necesarias solo con AGENT_PROFILE=production:
+# google-cloud-aiplatform>=1.165       # Memory Bank y Agent Engine Sandbox
+# google-cloud-discoveryengine>=0.13   # Vertex AI Search

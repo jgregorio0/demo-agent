@@ -34,9 +34,16 @@ vía RAG y ejecuta análisis estadísticos en un sandbox seguro.
 ```
 demo-agent/
 ├── main.py                          # Punto de entrada de la demo local
+├── requirements.txt                 # Dependencias (núcleo + perfil local)
+├── .env                             # Selección de perfil (AGENT_PROFILE)
+├── .env.local                       # Config del perfil local (gratuito)
+├── .env.production.example          # Plantilla del perfil production (GCP)
+├── docker-compose.yml               # Stack local: Ollama
 └── family_budget_agent/             # Paquete del agente
     ├── __init__.py                  # Expone el módulo agent (convención ADK)
+    ├── config.py                    # Perfiles local/production (factories)
     ├── agent.py                     # Sub-agentes + orquestador (root_agent)
+    ├── knowledge_base.py            # RAG local: ChromaDB + embeddings
     ├── models.py                    # Esquemas Pydantic de entrada y perfiles
     ├── callbacks.py                 # Guardarraíles de seguridad y RBAC
     ├── tools.py                     # Herramientas con ToolContext y scopes
@@ -57,18 +64,51 @@ FamilyBudgetOrchestratorAgent  (gemini-2.5-flash)
     └── code_executor: AgentEngineSandboxCodeExecutor
 ```
 
+## Perfiles de infraestructura
+
+El agente resuelve toda su infraestructura según `AGENT_PROFILE`
+(`family_budget_agent/config.py`):
+
+| Componente | `local` (gratuito/OSS) | `production` (GCP, de pago) |
+|---|---|---|
+| LLM | Ollama vía LiteLLM (`ollama_chat/llama3.1:8b`) | Gemini en Vertex AI |
+| RAG | ChromaDB + embeddings ONNX locales | Vertex AI Search |
+| Sandbox de código | `UnsafeLocalCodeExecutor` o `ContainerCodeExecutor` (Docker) | `AgentEngineSandboxCodeExecutor` |
+| Memoria largo plazo | `InMemoryMemoryService` | `VertexAiMemoryBankService` |
+| Sesiones | SQLite (`DatabaseSessionService`) | SQLite o `SESSION_DB_URL` → PostgreSQL/Cloud SQL |
+| Despliegue | `adk web` / `adk run` | `agents-cli deploy` → Agent Runtime + Gemini Enterprise |
+
+Selección del perfil:
+
+1. Variable de entorno `AGENT_PROFILE` (`local` por defecto).
+2. `.env` define el perfil base; `.env.local` / `.env.production` cargan la
+   config específica de cada uno (`.env.production` está gitignored — usa
+   `.env.production.example` como plantilla).
+
+Para el perfil local, levanta Ollama con el compose incluido:
+
+```bash
+docker compose up -d ollama
+docker exec -it family-budget-ollama ollama pull llama3.1:8b
+```
+
+> `python main.py` funciona en local incluso sin Ollama corriendo (solo la
+> inferencia lo necesita). Con `CODE_EXECUTOR_MODE=docker` el análisis de
+> datos se ejecuta en un contenedor aislado en lugar del proceso local.
+
 ## Requisitos
 
 - Python 3.10+
 - Dependencias:
 
 ```bash
-pip install google-adk pydantic
+pip install -r requirements.txt
 ```
 
-Para las funciones de Vertex AI (Search, Memory Bank, Sandbox) se requiere un
-proyecto de GCP con las APIs correspondientes habilitadas y credenciales
-configuradas (Application Default Credentials).
+- Perfil `local`: Docker Desktop (para Ollama vía compose y/o
+  `CODE_EXECUTOR_MODE=docker`), u Ollama instalado directamente.
+- Perfil `production`: proyecto de GCP con billing, las APIs de Vertex AI
+  habilitadas y credenciales configuradas (Application Default Credentials).
 
 ## Uso
 

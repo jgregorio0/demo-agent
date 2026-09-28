@@ -1,0 +1,28 @@
+# Stack local gratuito para `AGENT_PROFILE=local`.
+#
+#   docker compose up -d ollama
+#   docker exec -it family-budget-ollama ollama pull llama3.1:8b
+#   docker exec -it family-budget-ollama ollama pull nomic-embed-text   # opcional (embeddings)
+#
+# El agente consume Ollama vía OLLAMA_API_BASE (por defecto http://localhost:11434).
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: family-budget-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # Si tienes GPU NVIDIA, descomenta:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_data:
